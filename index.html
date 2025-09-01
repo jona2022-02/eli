@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Runner Blaster – Edición Pro</title>
+  <style>
+    /* =====================================================
+       🎨 DISEÑO PROFESIONAL (Glass + Neon)
+       ===================================================== */
+    :root{
+      --bg:#0b1020;           /* Fondo base */
+      --panel:#0b1222ee;      /* Panel overlay */
+      --chip:#0f172acc;       /* Chips HUD */
+      --texto:#e5e7eb;        /* Texto principal */
+      --sub:#cbd5e1;          /* Texto secundario */
+      --borde:#ffffff22;      /* Borde suave */
+      --acento:#22d3ee;       /* Cian neon */
+      --acento-2:#a855f7;     /* Morado neon */
+      --ok:#34d399;           /* Verde */
+      --peligro:#f97373;      /* Rojo */
+      --am:#fbbf24;           /* Ámbar */
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      display:grid;place-items:center;overflow:hidden;color:var(--texto);
+      background: radial-gradient(1200px 800px at 50% -20%, #101a33 0%, var(--bg) 60%);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    }
+
+    .marco{
+      position:relative;width:min(96vw,1100px);aspect-ratio:16/9;border-radius:24px;overflow:hidden;
+      background:linear-gradient(180deg,#0b1023 0%,#0e182a 100%);
+      box-shadow:0 30px 80px #0008, inset 0 0 0 1px #ffffff1a;
+    }
+
+    canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+
+    /* HUD superior */
+    .hud{position:absolute;inset:12px 12px auto 12px;display:flex;gap:10px;justify-content:space-between;pointer-events:none;width:calc(100% - 24px);align-items:flex-start}
+    .grupo-izq,.grupo-der{display:flex;gap:10px;align-items:center}
+    .chip{pointer-events:auto;background:var(--chip);border:1px solid var(--borde);padding:8px 12px;border-radius:999px;font-weight:800;font-size:14px;backdrop-filter:blur(8px);letter-spacing:.2px;display:inline-flex;align-items:center;gap:8px}
+    .chip .dot{width:8px;height:8px;border-radius:999px;background:var(--acento);box-shadow:0 0 8px var(--acento)}
+    .chip.warn .dot{background:var(--am);box-shadow:0 0 8px var(--am)}
+    .chip.bad .dot{background:var(--peligro);box-shadow:0 0 8px var(--peligro)}
+    .chip.good .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+    .btn-ghost{pointer-events:auto;user-select:none;background:#ffffff14;border:1px solid var(--borde);color:var(--texto);height:36px;padding:0 14px;border-radius:12px;font-weight:800;backdrop-filter:blur(6px);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+    .btn-ghost:active{transform:scale(.98)}
+
+    /* Controles móviles */
+    .controles{position:absolute;inset:auto 10px 10px 10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .btn-touch{user-select:none;-webkit-user-select:none;touch-action:manipulation;background:#ffffff12;border:1px solid var(--borde);color:var(--texto);padding:12px 14px;border-radius:14px;font-weight:800;text-align:center;backdrop-filter:blur(4px);cursor:pointer}
+    .btn-touch.primary{background:#22d3ee22;border-color:#22d3ee66}
+    .btn-touch:active{transform:scale(.98)}
+
+    /* Overlay (inicio / pausa / fin) */
+    .overlay{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,#0b1023cc,#0e182acc);backdrop-filter:blur(3px)}
+    .panel{background:var(--panel);border:1px solid var(--borde);border-radius:20px;padding:22px;width:min(92%,620px);box-shadow:0 20px 60px #0008}
+    .panel h1{margin:0 0 6px;font-size:26px}
+    .panel p{margin:8px 0;color:var(--sub)}
+    .fila{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+    .campo{display:flex;align-items:center;gap:8px;background:#0f172a;border:1px solid var(--borde);border-radius:12px;padding:10px 12px}
+    .campo select{appearance:none;background:transparent;border:none;color:var(--texto);font-weight:800;letter-spacing:.2px;outline:none;cursor:pointer}
+    .acciones{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+    .btn{background:linear-gradient(180deg,#1b2a3f,#111a2a);border:1px solid var(--borde);color:var(--texto);padding:12px 16px;border-radius:14px;font-weight:900;letter-spacing:.3px;cursor:pointer;box-shadow:0 10px 30px #0006}
+    .btn.primary{background:linear-gradient(180deg,#1b2a3f,#0c2330);border-color:#22d3ee66;box-shadow:0 10px 30px #0ff3}
+    .btn:active{transform:translateY(1px)}
+
+    /* Etiquetas kbd */
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;background:#0f172a;border:1px solid var(--borde);border-bottom-width:3px;border-radius:6px;padding:2px 6px;margin:0 2px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="marco" id="marco">
+    <canvas id="lienzo" width="960" height="540" aria-label="Runner Blaster"></canvas>
+
+    <!-- HUD superior -->
+    <div class="hud">
+      <div class="grupo-izq">
+        <div class="chip" id="hudPuntaje"><span class="dot"></span> Puntos: 0 • Kills: 0</div>
+        <div class="chip good" id="hudVidas"><span class="dot"></span> Vidas: 3</div>
+        <div class="chip" id="hudNivel"><span class="dot"></span> Mundo 1-1</div>
+        <div class="chip warn" id="hudJefe" style="display:none"><span class="dot"></span> Jefe ❤❤❤❤❤❤</div>
+      </div>
+      <div class="grupo-der">
+        <button class="btn-ghost" id="btnPausa">⏸ Pausa</button>
+        <button class="btn-ghost" id="btnSilencioTopo">🔊</button>
+      </div>
+    </div>
+
+    <!-- Controles táctiles / mouse -->
+    <div class="controles">
+      <div class="btn-touch" id="btnIzq">◀︎</div>
+      <div class="btn-touch primary" id="btnSalto">⤒ Saltar</div>
+      <div class="btn-touch" id="btnDer">▶︎</div>
+    </div>
+
+    <!-- Overlay: Inicio / Pausa / Fin -->
+    <div class="overlay" id="overlay">
+      <div class="panel">
+        <h1>🏃‍♂️ Runner Blaster – Edición Pro</h1>
+        <p>El personaje avanza solo. Dispara con <span class="kbd">X</span> o <span class="kbd">Ctrl</span>. Salta con <span class="kbd">Z</span> o <span class="kbd">Espacio</span>. Pausa con <span class="kbd">P</span>.</p>
+        <p>Elige la <strong>dificultad</strong> y el <strong>fondo</strong> antes de empezar:</p>
+        <div class="fila">
+          <label class="campo">⚙️ Dificultad
+            <select id="selDificultad">
+              <option>Fácil</option>
+              <option selected>Normal</option>
+              <option>Difícil</option>
+              <option>Insano</option>
+            </select>
+          </label>
+          <label class="campo">🖼️ Fondo
+            <select id="selFondo">
+              <option selected>Nocturno</option>
+              <option>Amanecer</option>
+              <option>Desierto</option>
+              <option>Ciudad</option>
+              <option>Espacio</option>
+              <option>Bosque</option>
+              <option>Ciber</option>
+            </select>
+          </label>
+        </div>
+        <div class="acciones">
+          <button class="btn primary" id="btnEmpezar">Empezar</button>
+          <button class="btn" id="btnSilencio">🔊 Sonido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================
+       🧠 UTILIDADES
+       ===================================================== */
+    const limitar = (n,a,b)=>Math.max(a,Math.min(b,n));
+    const aleatorio = (a,b)=>Math.random()*(b-a)+a;
+
+    /* =====================================================
+       🖼️ CANVAS & DIMENSIONES
+       ===================================================== */
+    const marco = document.getElementById('marco');
+    const lienzo = document.getElementById('lienzo');
+    const ctx = lienzo.getContext('2d');
+    const RPD = Math.min(devicePixelRatio||1,2);
+    function ajustar(){ const r = marco.getBoundingClientRect(); lienzo.width = Math.floor(r.width*RPD); lienzo.height = Math.floor(r.height*RPD); }
+    ajustar(); addEventListener('resize', ajustar);
+    const ANCHO=()=>lienzo.width, ALTO=()=>lienzo.height;
+
+    /* =====================================================
+       🔊 AUDIO (beeps sencillos)
+       ===================================================== */
+    const ctxAudio = new (window.AudioContext||window.webkitAudioContext)();
+    let silenciado = false;
+    function bip(freq=440, dur=.06, tipo='square', vol=.06){ if(silenciado) return; const o=ctxAudio.createOscillator(), g=ctxAudio.createGain(); o.type=tipo; o.frequency.value=freq; g.gain.value=vol; o.connect(g).connect(ctxAudio.destination); const t=ctxAudio.currentTime; o.start(t); o.stop(t+dur); }
+
+    /* =====================================================
+       🧍‍♂️ SPRITE (opcional)
+       ===================================================== */
+    const RUTA_SPRITE='personaje.png';
+    const imgJugador = new Image(); let spriteListo=false; imgJugador.onload=()=>spriteListo=true; imgJugador.src=RUTA_SPRITE;
+
+    /* =====================================================
+       🧾 HUD & UI
+       ===================================================== */
+    const hudPuntaje=document.getElementById('hudPuntaje');
+    const hudVidas=document.getElementById('hudVidas');
+    const hudNivel=document.getElementById('hudNivel');
+    const hudJefe=document.getElementById('hudJefe');
+
+    const overlay=document.getElementById('overlay');
+    const btnEmpezar=document.getElementById('btnEmpezar');
+    const btnSilencio=document.getElementById('btnSilencio');
+    const btnSilencioTopo=document.getElementById('btnSilencioTopo');
+    const btnPausa=document.getElementById('btnPausa');
+
+    const btnIzq=document.getElementById('btnIzq');
+    const btnDer=document.getElementById('btnDer');
+    const btnSalto=document.getElementById('btnSalto');
+
+    const selDificultad=document.getElementById('selDificultad');
+    const selFondo=document.getElementById('selFondo');
+
+    /* =====================================================
+       ⚙️ DIFICULTADES (parámetros)
+       ===================================================== */
+    const DIFICULTADES={
+      'Fácil':   { vidas:4, aparicionCada:1400, aparicionMin:650,  aparicionDec:8,  velBot:0.07, killsBoss:8,  tasaDisparo:200 },
+      'Normal':  { vidas:3, aparicionCada:1200, aparicionMin:500,  aparicionDec:10, velBot:0.08, killsBoss:10, tasaDisparo:220 },
+      'Difícil': { vidas:3, aparicionCada:900,  aparicionMin:420,  aparicionDec:12, velBot:0.10, killsBoss:12, tasaDisparo:240 },
+      'Insano':  { vidas:2, aparicionCada:700,  aparicionMin:360,  aparicionDec:16, velBot:0.12, killsBoss:15, tasaDisparo:260 }
+    };
+
+    /* =====================================================
+       📦 ESTADO GLOBAL
+       ===================================================== */
+    const estado={
+      corriendo:false, pausado:false, ultimo:0,
+      puntaje:0, vidas:3, nombreNivel:'Mundo 1-1',
+      dificultad:'Normal', parametros:DIFICULTADES['Normal'], temaFondo:'Nocturno',
+      teclas:{izquierda:false,derecha:false,saltar:false,disparar:false},
+      camaraX:0, gravedad:0.0015, friccion:0.9,
+      jugador:null, enemigos:[], plataformas:[], jefe:null, balas:[],
+      puntoControlX:40, bajas:0,
+      temporizadorAparicion:0, aparicionCada:1200,
+      balasPorDisparo:1, enfriamientoDisparo:0, tasaDisparo:220,
+      jefeAparecido:false
+    };
+
+    /* =====================================================
+       🧱 ENTIDADES
+       ===================================================== */
+    function crearJugador(){return{ x:40,y:380,w:32,h:32,vx:0.18,vy:0, velocidad:0.35, salto:0.55, enSuelo:false, invulnerable:0, mirando:1 }}
+    function crearEnemigo(x,y){ const base = (estado?.parametros?.velBot ?? 0.08); return{ tipo:'bot',x,y,w:28,h:28,vx:base*(Math.random()<.5?-1:1),vy:0,enSuelo:false,muerto:false,patrulla:[x-60,x+60],hp:1 } }
+    function crearJefe(x,y){return{ tipo:'jefe',x,y,w:64,h:64,vx:0.16,vy:0,enSuelo:false,hp:6,cooldown:0,furioso:false }}
+
+    function colisionan(a,b){return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y}
+
+    /* =====================================================
+       🗺️ NIVEL
+       ===================================================== */
+    function construirNivel(){
+      estado.plataformas=[]; estado.enemigos=[]; estado.jefe=null; estado.balas=[];
+      estado.bajas=0; estado.temporizadorAparicion=0; estado.jefeAparecido=false;
+      estado.aparicionCada = estado.parametros.aparicionCada; estado.tasaDisparo=estado.parametros.tasaDisparo; estado.balasPorDisparo=1;
+
+      for(let i=0;i<600;i++) estado.plataformas.push({x:i*200,y:420,w:200,h:120,tipo:'suelo'});
+      const plataformasIniciales=[
+        {x:220,y:340,w:120,h:20},{x:370,y:300,w:90,h:20},{x:500,y:260,w:120,h:20},
+        {x:780,y:320,w:140,h:20},{x:980,y:280,w:100,h:20},{x:1180,y:250,w:110,h:20}
+      ];
+      estado.plataformas.push(...plataformasIniciales);
+
+      estado.jugador=crearJugador(); estado.camaraX=0; estado.puntoControlX=40; estado.vidas=estado.parametros.vidas;
+    }
+
+    /* =====================================================
+       🖌️ DIBUJO
+       ===================================================== */
+    function mundoX(x){return Math.floor((x-estado.camaraX)*RPD)}
+    function mundoY(y){return Math.floor(y*RPD)}
+    function rect(x,y,w,h,c){ctx.fillStyle=c; ctx.fillRect(mundoX(x),mundoY(y),Math.ceil(w*RPD),Math.ceil(h*RPD))}
+
+    function fondo(){
+      const w=ANCHO(), h=ALTO(); const tema=estado.temaFondo;
+      const estrellas=(n=80, par=.2)=>{ctx.globalAlpha=.6; for(let i=0;i<n;i++){const x=(i*73-estado.camaraX*par)%w; const y=(i*129)%h; ctx.fillStyle='#ffffff14'; ctx.fillRect(x,y,2,2);} ctx.globalAlpha=1;};
+      if(tema==='Amanecer'){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#ffedd5'); g.addColorStop(1,'#fecdd3'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); ctx.globalAlpha=.15; ctx.beginPath(); ctx.arc(w*.2,h*.3,150,0,Math.PI*2); ctx.fillStyle='#fbbf24'; ctx.fill(); ctx.globalAlpha=1; }
+      else if(tema==='Desierto'){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#fde68a'); g.addColorStop(1,'#f59e0b'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); ctx.globalAlpha=.25; ctx.fillStyle='#92400e'; ctx.fillRect(0,h*.75,w,h*.25); ctx.globalAlpha=1; }
+      else if(tema==='Ciudad'){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#111827'); g.addColorStop(1,'#1f2937'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); ctx.fillStyle='#0b1324'; for(let i=0;i<12;i++){const bw=40+Math.random()*80; const bh=h*.2+Math.random()*h*.5; const bx=(i*90-(estado.camaraX*.3)%(90*12)); const by=h-bh; ctx.fillRect(bx,by,bw,bh);} estrellas(40,.05); }
+      else if(tema==='Espacio'){ ctx.fillStyle='#060912'; ctx.fillRect(0,0,w,h); estrellas(130,.1); ctx.globalAlpha=.3; ctx.beginPath(); ctx.arc(w*.8,h*.25,120,0,Math.PI*2); ctx.fillStyle='#6366f1'; ctx.fill(); ctx.globalAlpha=1; }
+      else if(tema==='Bosque'){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#052e2a'); g.addColorStop(1,'#0b3f2d'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); ctx.fillStyle='#0a2b24'; for(let i=0;i<14;i++){const bw=50+Math.random()*70; const bh=h*.25+Math.random()*h*.45; const bx=(i*80-(estado.camaraX*.25)%(80*14)); const by=h-bh; ctx.fillRect(bx,by,bw,bh);} estrellas(20,.05); }
+      else if(tema==='Ciber'){ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#06111e'); g.addColorStop(1,'#0a1b2e'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); // rejilla
+        ctx.globalAlpha=.15; ctx.strokeStyle='#22d3ee55'; ctx.beginPath(); for(let x=0;x<w;x+=28){ctx.moveTo((x-(estado.camaraX*.6)%28),0); ctx.lineTo((x-(estado.camaraX*.6)%28),h);} for(let y=0;y<h;y+=28){ctx.moveTo(0,y); ctx.lineTo(w,y);} ctx.stroke(); ctx.globalAlpha=1; estrellas(90,.18); }
+      else{ const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#0b1023'); g.addColorStop(1,'#0e182a'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); estrellas(80,.2); }
+    }
+
+    function dibujar(){
+      ctx.clearRect(0,0,ANCHO(),ALTO());
+      fondo();
+      for(const p of estado.plataformas){ rect(p.x,p.y,p.w,p.h, p.tipo==='suelo'?'#0a0f1a':'#122036'); }
+      for(const b of estado.balas){ rect(b.x,b.y,b.w,b.h,'#eab308'); }
+      for(const e of estado.enemigos){ if(e.muerto) continue; rect(e.x,e.y,e.w,e.h,'#ef4444'); rect(e.x+6,e.y+6,e.w-12,e.h-18,'#7f1d1d'); }
+      const J=estado.jefe; if(J){ rect(J.x,J.y,J.w,J.h,'#a855f7'); rect(J.x+8,J.y+8,J.w-16,J.h-24,'#4c1d95'); }
+      const ju=estado.jugador; if(spriteListo){ ctx.drawImage(imgJugador,mundoX(ju.x),mundoY(ju.y),Math.ceil(ju.w*RPD),Math.ceil(ju.h*RPD)); }
+      else{ rect(ju.x,ju.y,ju.w,ju.h,'#22d3ee'); rect(ju.x+6,ju.y+6,ju.w-12,ju.h-16,'#155e75'); }
+    }
+
+    /* =====================================================
+       🧮 FÍSICA & COLISIONES
+       ===================================================== */
+    function aplicarFisica(o,dt){ o.vy+=estado.gravedad*dt; o.x+=o.vx*dt; colisionX(o); o.y+=o.vy*dt; o.enSuelo=false; colisionY(o); }
+    function colisionX(o){ for(const p of estado.plataformas){ if(!colisionan(o,p)) continue; if(o.vx>0){o.x=p.x-o.w;o.vx=0;} else if(o.vx<0){o.x=p.x+p.w;o.vx=0;} } }
+    function colisionY(o){ for(const p of estado.plataformas){ if(!colisionan(o,p)) continue; if(o.vy>0){o.y=p.y-o.h;o.vy=0;o.enSuelo=true;} else if(o.vy<0){o.y=p.y+p.h;o.vy=0;} } }
+
+    /* =====================================================
+       🤖 ENEMIGOS
+       ===================================================== */
+    function actualizarEnemigos(dt){
+      estado.temporizadorAparicion+=dt;
+      if(estado.temporizadorAparicion>estado.aparicionCada && !estado.jefeAparecido){
+        estado.temporizadorAparicion=0;
+        const ex=estado.camaraX+(ANCHO()/RPD)+80+Math.random()*160; const ey=392;
+        // Oleada: 1-2 enemigos (según dificultad)
+        const cantidad = estado.dificultad==='Insano'?2 : (estado.dificultad==='Difícil' && Math.random()<0.5?2:1);
+        for(let i=0;i<cantidad;i++) estado.enemigos.push(crearEnemigo(ex+i*28,ey));
+        estado.aparicionCada = Math.max(estado.parametros.aparicionMin, estado.aparicionCada - estado.parametros.aparicionDec);
+      }
+
+      const ju=estado.jugador;
+      for(const e of estado.enemigos){ if(e.muerto) continue; e.vy+=estado.gravedad*dt; e.x+=e.vx*dt; e.y+=e.vy*dt; colisionX(e); colisionY(e);
+        if(e.patrulla){ if(e.x<e.patrulla[0]){e.x=e.patrulla[0]; e.vx=Math.abs(e.vx);} if(e.x+e.w>e.patrulla[1]){e.x=e.patrulla[1]-e.w; e.vx=-Math.abs(e.vx);} }
+        if(colisionan(ju,e)){
+          const pisoton=(ju.vy>0)&&(ju.y+ju.h-e.y<18);
+          if(pisoton){ matarEnemigo(e,true); ju.vy=-ju.salto*0.7; }
+          else if(ju.invulnerable<=0){ herirJugador(); }
+        }
+      }
+      estado.enemigos=estado.enemigos.filter(e=>!e.muerto||e.y<2000);
+    }
+
+    /* =====================================================
+       👑 JEFE
+       ===================================================== */
+    function actualizarJefe(dt){ const J=estado.jefe; if(!J) return; J.vy+=estado.gravedad*dt; J.x+=J.vx*dt; J.y+=J.vy*dt; colisionX(J); colisionY(J);
+      const ju=estado.jugador; const dir=ju.x>J.x?1:-1; J.vx=0.12*dir*(J.furioso?1.4:1);
+      if(J.enSuelo && Math.random()<0.004){ J.vy=-0.5*(J.furioso?1.2:1); }
+      if(colisionan(ju,J)){ const pisoton=(ju.vy>0)&&(ju.y+ju.h-J.y<22); if(pisoton){ daniarJefe(1); ju.vy=-ju.salto; } else if(ju.invulnerable<=0){ herirJugador(); } }
+      hudJefe.style.display='inline-flex'; hudJefe.textContent='Jefe '+ '❤'.repeat(J.hp);
+    }
+
+    /* =====================================================
+       ❤️ JUGADOR & VIDA
+       ===================================================== */
+    function herirJugador(){ const ju=estado.jugador; estado.vidas--; ju.invulnerable=1200; bip(200,.1,'square',.08); if(estado.vidas<0){ juegoTerminado(); return; }
+      ju.x=estado.puntoControlX; ju.y=380; ju.vx=0.18; ju.vy=0; estado.camaraX=ju.x-100; actualizarHUD(); }
+
+    /* =====================================================
+       🔫 DISPAROS
+       ===================================================== */
+    function disparar(){ const ju=estado.jugador; const vel=0.6; const by=ju.y+12; const bx=ju.x+ju.w/2+18*ju.mirando; const tiros=estado.balasPorDisparo;
+      if(tiros===1){ estado.balas.push({x:bx,y:by,w:10,h:4,vx:vel*ju.mirando,vy:0,vida:2000}); }
+      else{ const disp=0.22, mid=(tiros-1)/2; for(let i=0;i<tiros;i++){ const ang=(i-mid)*disp; const vx=vel*Math.cos(ang)*ju.mirando; const vy=vel*Math.sin(ang); estado.balas.push({x:bx,y:by,w:10,h:4,vx,vy,vida:2000}); } }
+      bip(900,.04,'triangle',.06);
+    }
+    function actualizarBalas(dt){ for(const b of estado.balas){ b.x+=b.vx*dt; b.y+=b.vy*dt; b.vida-=dt; }
+      for(const b of estado.balas){ if(b.muerta) continue; for(const e of estado.enemigos){ if(e.muerto) continue; if(colisionan(b,e)){ b.muerta=true; matarEnemigo(e,false); break; } } }
+      if(estado.jefe){ for(const b of estado.balas){ if(b.muerta) continue; if(colisionan(b,estado.jefe)){ b.muerta=true; daniarJefe(1); } } }
+      estado.balas=estado.balas.filter(b=>!b.muerta && b.vida>0 && b.x>estado.camaraX-200 && b.x<estado.camaraX+(ANCHO()/RPD)+600);
+    }
+
+    function matarEnemigo(e,porPisoton){ e.muerto=true; estado.puntaje+=porPisoton?50:30; estado.bajas++; if(!estado.jefeAparecido && estado.bajas>=estado.parametros.killsBoss) aparecerJefe(); actualizarHUD(); bip(porPisoton?1000:800,.07,'sawtooth',.07); }
+    function aparecerJefe(){ estado.jefe=crearJefe(estado.camaraX+(ANCHO()/RPD)+220,356); estado.jefeAparecido=true; hudJefe.style.display='inline-flex'; estado.balasPorDisparo=3; estado.tasaDisparo=160; }
+    function daniarJefe(d){ if(!estado.jefe) return; estado.jefe.hp-=d; estado.puntaje+=20; if(estado.jefe.hp<=0){ victoria(); } else if(estado.jefe.hp<=2){ estado.jefe.furioso=true; } actualizarHUD(); }
+
+    /* =====================================================
+       🔁 BUCLE
+       ===================================================== */
+    function bucle(t){ if(!estado.corriendo || estado.pausado) return; const dt=Math.min(32,t-(estado.ultimo||t)); estado.ultimo=t; const ju=estado.jugador;
+      ju.vx=Math.max(ju.vx,0.18); estado.camaraX=limitar(ju.x-140,0,Infinity);
+      const ax=(estado.teclas.izquierda?-1:0)+(estado.teclas.derecha?1:0); ju.vx+=ax*ju.velocidad*dt; ju.vx*=estado.friccion; if(Math.abs(ju.vx)<0.01) ju.vx=0.08; ju.mirando=ju.vx>=0?1:-1;
+      if(estado.teclas.saltar && ju.enSuelo){ ju.vy=-ju.salto; ju.enSuelo=false; bip(700,.06,'square',.06); }
+      if(estado.enfriamientoDisparo>0) estado.enfriamientoDisparo-=dt; if(estado.teclas.disparar && estado.enfriamientoDisparo<=0){ disparar(); estado.enfriamientoDisparo=estado.tasaDisparo; }
+      aplicarFisica(ju,dt); if(ju.invulnerable>0) ju.invulnerable-=dt;
+      actualizarBalas(dt); actualizarEnemigos(dt); actualizarJefe(dt);
+      dibujar(); requestAnimationFrame(bucle);
+    }
+
+    /* =====================================================
+       🏳️ ESTADOS / HUD
+       ===================================================== */
+    function juegoTerminado(){ estado.corriendo=false; hudJefe.style.display='none'; mostrarOverlay('💀 Juego terminado', `Puntaje: <strong>${estado.puntaje}</strong> • Kills: <strong>${estado.bajas}</strong>`); }
+    function victoria(){ estado.corriendo=false; hudJefe.style.display='none'; mostrarOverlay('🏁 ¡Victoria!', `¡Venciste al jefe! Puntaje: <strong>${estado.puntaje}</strong> • Kills: <strong>${estado.bajas}</strong>`); }
+    function actualizarHUD(){ hudPuntaje.textContent=`Puntos: ${estado.puntaje} • Kills: ${estado.bajas}`; hudVidas.textContent=`Vidas: ${estado.vidas}`; hudNivel.textContent=estado.nombreNivel; }
+
+    function mostrarOverlay(titulo,html){ overlay.innerHTML=`
+      <div class="panel">
+        <h1>${titulo}</h1>
+        <p>${html}</p>
+        <p style="margin-top:6px">Pulsa <span class="kbd">P</span> para pausar en cualquier momento.</p>
+        <div class="fila">
+          <label class="campo">⚙️ Dificultad
+            <select id="selDificultad2">
+              <option>Fácil</option>
+              <option>Normal</option>
+              <option>Difícil</option>
+              <option>Insano</option>
+            </select>
+          </label>
+          <label class="campo">🖼️ Fondo
+            <select id="selFondo2">
+              <option>Nocturno</option>
+              <option>Amanecer</option>
+              <option>Desierto</option>
+              <option>Ciudad</option>
+              <option>Espacio</option>
+              <option>Bosque</option>
+              <option>Ciber</option>
+            </select>
+          </label>
+        </div>
+        <div class="acciones">
+          <button class="btn primary" id="btnReintentar">Reintentar</button>
+          <button class="btn" id="btnSilencio2">${silenciado?'🔇 Silencio':'🔊 Sonido'}</button>
+        </div>
+      </div>`; overlay.style.display='grid';
+      document.getElementById('selDificultad2').value=estado.dificultad;
+      document.getElementById('selFondo2').value=estado.temaFondo;
+      document.getElementById('selDificultad2').addEventListener('change',e=>aplicarDificultad(e.target.value));
+      document.getElementById('selFondo2').addEventListener('change',e=>aplicarFondo(e.target.value));
+      document.getElementById('btnReintentar').onclick=iniciar;
+      document.getElementById('btnSilencio2').onclick=alternarSilencio;
+    }
+
+    function iniciar(){ overlay.style.display='none'; estado.puntaje=0; estado.vidas=estado.parametros.vidas; construirNivel(); actualizarHUD(); estado.corriendo=true; estado.pausado=false; estado.ultimo=0; requestAnimationFrame(bucle); ctxAudio.resume && ctxAudio.resume(); }
+    function pausar(reanudar=false){ estado.pausado=!reanudar; if(estado.pausado){ mostrarOverlay('⏸ Pausa', 'Juego en pausa'); } else { overlay.style.display='none'; estado.ultimo=0; requestAnimationFrame(bucle); } }
+
+    function aplicarDificultad(nombre){ estado.dificultad=nombre; estado.parametros=DIFICULTADES[nombre]||DIFICULTADES['Normal']; }
+    function aplicarFondo(tema){ estado.temaFondo=tema; }
+
+    function alternarSilencio(){ silenciado=!silenciado; btnSilencio.textContent = silenciado?'🔇 Silencio':'🔊 Sonido'; btnSilencioTopo.textContent = silenciado?'🔇':'🔊'; bip(600,.05); }
+
+    /* =====================================================
+       ⌨️ CONTROLES
+       ===================================================== */
+    addEventListener('keydown',e=>{
+      if(['ArrowLeft','ArrowRight','Space','KeyZ'].includes(e.code) || ['ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+      if(e.key==='ArrowLeft') estado.teclas.izquierda=true;
+      if(e.key==='ArrowRight') estado.teclas.derecha=true;
+      if(e.code==='Space'||e.code==='KeyZ') estado.teclas.saltar=true;
+      if(['KeyX','ControlLeft','ControlRight'].includes(e.code)) estado.teclas.disparar=true;
+      if(e.code==='KeyP'){ if(estado.corriendo) pausar(!estado.pausado); }
+    },{passive:false});
+    addEventListener('keyup',e=>{
+      if(e.key==='ArrowLeft') estado.teclas.izquierda=false;
+      if(e.key==='ArrowRight') estado.teclas.derecha=false;
+      if(e.code==='Space'||e.code==='KeyZ') estado.teclas.saltar=false;
+      if(['KeyX','ControlLeft','ControlRight'].includes(e.code)) estado.teclas.disparar=false;
+    });
+
+    // Botones táctiles
+    const mantener=(el,down,up)=>{ const d=ev=>{down();ev.preventDefault();}; const u=ev=>{up();ev.preventDefault();}; el.addEventListener('touchstart',d,{passive:false}); el.addEventListener('mousedown',d); addEventListener('touchend',u,{passive:false}); addEventListener('mouseup',u); addEventListener('touchcancel',u,{passive:false}); };
+    mantener(btnIzq, ()=>estado.teclas.izquierda=true, ()=>estado.teclas.izquierda=false);
+    mantener(btnDer, ()=>estado.teclas.derecha=true, ()=>estado.teclas.derecha=false);
+    btnSalto.addEventListener('mousedown',()=>estado.teclas.saltar=true);
+    btnSalto.addEventListener('mouseup',()=>estado.teclas.saltar=false);
+    btnSalto.addEventListener('touchstart',e=>{estado.teclas.saltar=true;e.preventDefault();},{passive:false});
+    btnSalto.addEventListener('touchend',e=>{estado.teclas.saltar=false;e.preventDefault();},{passive:false});
+
+    // Botones overlay/topo
+    btnEmpezar.addEventListener('click',iniciar);
+    btnSilencio.addEventListener('click',alternarSilencio);
+    btnSilencioTopo.addEventListener('click',alternarSilencio);
+    btnPausa.addEventListener('click',()=>{ if(estado.corriendo) pausar(!estado.pausado); });
+
+    // Enlazar selects iniciales
+    selDificultad.addEventListener('change',e=>aplicarDificultad(e.target.value));
+    selFondo.addEventListener('change',e=>aplicarFondo(e.target.value));
+
+    // Evitar scroll con teclado de juego
+    addEventListener('keydown',e=>{ if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.key)) e.preventDefault(); },{passive:false});
+  </script>
+</body>
+</html>
+  
